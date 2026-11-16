@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.chroma/
+traces.jsonl
+data/orders.db
+evals/report.json
+.pytest_cache/

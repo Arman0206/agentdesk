@@ -1,0 +1,12 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+pydantic-settings>=2.2
+numpy>=1.26
+chromadb>=0.5
+langgraph>=0.2
+# --- production (GCP) ---
+google-genai>=1.0          # Vertex AI Gemini + embeddings
+# --- dev ---
+pytest>=8
+httpx>=0.27
