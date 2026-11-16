@@ -16,8 +16,15 @@ _W = re.compile(r"[a-z0-9\-]+")
 ORDER_RE = re.compile(r"\bORD-\d{3,8}\b", re.I)
 
 
+def _stem(w: str) -> str:
+    for suf in ("ing", "ed", "es", "s"):
+        if w.endswith(suf) and len(w) - len(suf) >= 4:
+            return w[: -len(suf)]
+    return w
+
+
 def content_words(t: str) -> set[str]:
-    return {w for w in _W.findall(t.lower()) if w not in STOP and len(w) > 2}
+    return {_stem(w) for w in _W.findall(t.lower()) if w not in STOP and len(w) > 2}
 
 
 def section(prompt: str, name: str) -> str:
@@ -41,7 +48,7 @@ class MockLLM:
             intent = "billing_refund"
         elif ORDER_RE.search(t) or re.search(r"\border\b|shipping|delivery|tracking|package", t):
             intent = "order_status"
-        elif re.search(r"2fa|two-factor|password|sso|saml|security|residency|login", t):
+        elif re.search(r"2fa|two-factor|password|sso|saml|security|residency|region|pin my data|login", t):
             intent = "account_security"
         elif re.search(r"error|e-\d{4}|crash|slow|not syncing|sync|bug|fail", t):
             intent = "technical_issue"
@@ -64,7 +71,7 @@ class MockLLM:
         ticket, ctx, facts = section(p, "TICKET"), section(p, "CONTEXT"), section(p, "FACTS")
         feedback = section(p, "FEEDBACK")
         qwords = content_words(ticket)
-        cands: list[tuple[float, str, str]] = []
+        by_passage: dict[str, list[tuple[float, str]]] = {}
         for line in ctx.splitlines():
             m = re.match(r"\[(\d+)\]\s*(.*)", line)
             if not m:
@@ -75,10 +82,37 @@ class MockLLM:
                 if len(sent) < 15:
                     continue
                 w = content_words(sent)
-                cands.append((len(w & qwords) / (len(w) ** 0.5 or 1), sent.strip(), n))
-        cands.sort(key=lambda x: x[0], reverse=True)
-        top = cands[0][0] if cands else 0
-        picked = [(s, n) for sc, s, n in cands[:2] if sc > 0 and sc >= 0.6 * top]
+                by_passage.setdefault(n, []).append((len(w & qwords) / (len(w) ** 0.5 or 1), sent.strip()))
+        picked: list[tuple[str, str]] = []
+        if by_passage:
+            best_n = max(by_passage, key=lambda n: max(sc for sc, _ in by_passage[n]))
+            top = max(sc for sc, _ in by_passage[best_n])
+            if top > 0:
+                # best two sentences of the top passage, kept in their original order
+                keep = sorted(by_passage[best_n], key=lambda x: x[0], reverse=True)[:2]
+                picked += [(sent, best_n) for sc, sent in by_passage[best_n] if (sc, sent) in keep and sc > 0]
+                for n, sents in by_passage.items():
+                    if n == best_n:
+                        continue
+                    for sc, sent in sents:
+                        if sc >= 0.8 * top:
+                            picked.append((sent, n))
+        # expand each picked sentence with the sentence that follows it in the same passage
+        # (resolution steps usually come right after the symptom/policy statement)
+        if picked:
+            order: dict[str, list[str]] = {}
+            for n, sents in by_passage.items():
+                order[n] = [x for _, x in sents]
+            expanded: list[tuple[str, str]] = []
+            for sent, n in picked:
+                if (sent, n) not in expanded:
+                    expanded.append((sent, n))
+                lst = order.get(n, [])
+                if sent in lst and lst.index(sent) + 1 < len(lst):
+                    nxt = lst[lst.index(sent) + 1]
+                    if (nxt, n) not in expanded:
+                        expanded.append((nxt, n))
+            picked = expanded
         body: list[str] = []
         for f in facts.splitlines():
             f = f.lstrip("- ").strip()
