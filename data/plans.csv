@@ -1,0 +1,4 @@
+plan,price_per_user_month_usd,storage_per_user_gb,max_users,sso,support_sla
+Starter,6,100,5,no,community forum
+Business,15,1000,500,yes,24 hour email response
+Enterprise,32,unlimited,unlimited,yes,1 hour response with a named engineer
