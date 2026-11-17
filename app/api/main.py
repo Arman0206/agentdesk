@@ -16,6 +16,7 @@ from collections import OrderedDict, defaultdict, deque
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from app.config import get_settings, reveal
 from app.observability.metrics import METRICS
@@ -87,6 +88,10 @@ def create_app(service: Service | None = None) -> FastAPI:
         ip = request.client.host if request.client else "unknown"
         if not limiter.allow(ip):
             raise HTTPException(429, "rate limit exceeded, try again in a minute")
+
+    @app.get("/", include_in_schema=False)
+    def root():
+        return RedirectResponse("/docs")
 
     @app.get("/health")
     def health():

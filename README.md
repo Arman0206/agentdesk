@@ -1,12 +1,16 @@
 # AgentDesk
 
+![ci](https://github.com/Arman0206/agentdesk/actions/workflows/ci.yml/badge.svg)
+
+**Live demo:** https://agentdesk.jollycliff-05334aa1.centralindia.azurecontainerapps.io/docs (Azure Container Apps; the public instance runs the offline deterministic test model, so it never spends API credit. First request after idle takes ~30 s.)
+
 A multi-agent support-ticket copilot. It reads a customer ticket, triages it, retrieves facts from
 structured and unstructured data, looks up the customer's order with a secure tool, drafts a cited
 reply, fact-checks that reply with a critic agent, and decides whether to **auto-send**, send for
 **human review**, **escalate**, or **drop** it.
 
-Built with Python, LangGraph, ChromaDB, FastAPI and the Gemini API. Every LLM call is traced
-(tokens, tokens/sec, cost, latency) and the whole system is covered by 36 tests and an evaluation harness.
+Built with Python, LangGraph, ChromaDB and FastAPI; LLM providers: Gemini API, Azure OpenAI, Vertex AI, or an offline test model. Containerised with Docker, tested and built by GitHub Actions, deployed on Azure Container Apps. Every LLM call is traced
+(tokens, tokens/sec, cost, latency) and the whole system is covered by 45 tests and an evaluation harness.
 
 ## How it works
 
@@ -39,7 +43,7 @@ flowchart LR
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-python -m pytest -q                       # 36 tests, offline
+python -m pytest -q                       # 45 tests, offline
 $env:PYTHONPATH="."
 python -m evals.run_eval                  # eval on the offline mock model
 python -m uvicorn app.api.main:app --port 8000
@@ -97,7 +101,7 @@ accuracy, retrieval hit rate, answer coverage, outcome accuracy, safety and grou
 - `customer_id` and `tenant` come from the request body for demo purposes; in production they must come from the authenticated identity.
 - Chroma storage is local and ephemeral on most free hosts; the app re-ingests the sample data at startup.
 - Estimated cost uses list prices in `app/llm/base.py` that may be out of date; free-tier usage is actually free.
-- Not yet deployed on a cloud platform.
+- The public demo runs the offline test model (no LLM); real-model results come from the evaluation runs below, not from the demo link.
 
 ## Layout
 ```
@@ -108,5 +112,5 @@ app/tools/      order lookup tool + demo data seeding
 app/observability/  tracing + metrics
 app/api/        FastAPI service
 evals/          dataset + evaluation harness
-tests/          36 tests
+tests/          45 tests
 ```

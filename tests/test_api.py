@@ -68,3 +68,8 @@ def test_secrets_are_not_printed(settings):
     from pydantic import SecretStr
     settings.gemini_api_key = SecretStr("fake-secret-value")
     assert "fake-secret" not in repr(settings) and "fake-secret" not in str(settings)
+
+
+def test_root_redirects_to_docs(client):
+    r = client.get("/", follow_redirects=False)
+    assert r.status_code in (302, 307) and r.headers["location"] == "/docs"
