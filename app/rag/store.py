@@ -8,7 +8,7 @@ from app.rag.embeddings import Embedder
 
 
 class VectorStore:
-    def __init__(self, embedder: Embedder, path: str | None = None, name: str = "kb", ephemeral: bool = False):
+    def __init__(self, embedder: Embedder, path: str | None = None, name: str = "agentdesk_kb", ephemeral: bool = False):
         s = get_settings()
         self.embedder = embedder
         self._client = chromadb.EphemeralClient() if ephemeral else chromadb.PersistentClient(path=path or s.chroma_dir)

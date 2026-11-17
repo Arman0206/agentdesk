@@ -45,8 +45,25 @@ class VertexEmbedder:
         return out
 
 
+class GeminiEmbedder:
+    """Gemini API embeddings (AI Studio key). Model name comes from settings -- verify it in AI Studio."""
+    def __init__(self, api_key: str, model: str, dim: int = 768):
+        from google import genai
+        self._client = genai.Client(api_key=api_key)
+        self._model, self.dim = model, dim
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        out: list[list[float]] = []
+        for i in range(0, len(texts), 50):
+            r = self._client.models.embed_content(model=self._model, contents=texts[i:i + 50])
+            out.extend(e.values for e in r.embeddings)
+        return out
+
+
 def get_embedder() -> Embedder:
     s = get_settings()
+    if s.embedding_provider == "gemini":
+        return GeminiEmbedder(s.gemini_api_key, s.gemini_embedding_model)
     if s.embedding_provider == "vertex":
         return VertexEmbedder(s.gcp_project, s.gcp_location, s.embedding_model)
     return HashEmbedder()
