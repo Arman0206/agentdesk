@@ -9,6 +9,7 @@ class Settings(BaseSettings):
 
     # provider: "mock" (offline, deterministic) | "gemini" (Gemini API / AI Studio key, free tier)
     #           | "vertex" (Gemini on Vertex AI, needs a billed GCP project)
+    #           | "azure" (OpenAI models on Azure; LLM_MODEL = the Azure deployment name)
     llm_provider: str = "mock"
     embedding_provider: str = "hash"  # "hash" | "gemini" | "vertex"
     gemini_api_key: SecretStr = SecretStr("")          # from https://aistudio.google.com/app/apikey -- never commit it
@@ -16,6 +17,10 @@ class Settings(BaseSettings):
     llm_cache: bool = True              # replay saved LLM answers (saves free-tier quota)
     llm_cache_dir: str = ".llm_cache"
     gemini_min_interval_s: float = 4.0  # client-side throttle to stay under free-tier requests/minute
+    azure_openai_endpoint: str = ""                      # https://<resource>.openai.azure.com/
+    azure_openai_api_key: SecretStr = SecretStr("")      # never commit it
+    azure_openai_api_version: str = "2025-04-01-preview"
+    azure_reasoning_effort: str = "low"                  # "" for non-reasoning models (sends temperature=0.2)
     gcp_project: str = ""
     gcp_location: str = "us-central1"
     llm_model: str = "gemini-3.8-flash"

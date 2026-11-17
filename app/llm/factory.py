@@ -7,6 +7,10 @@ def get_llm() -> LLMClient:
     if s.llm_provider == "gemini":
         from app.llm.gemini import GeminiLLM
         llm = GeminiLLM(reveal(s.gemini_api_key), s.llm_model, s.gemini_min_interval_s)
+    elif s.llm_provider == "azure":
+        from app.llm.azure_openai import AzureOpenAILLM
+        llm = AzureOpenAILLM(s.azure_openai_endpoint, reveal(s.azure_openai_api_key), s.llm_model,
+                             s.azure_openai_api_version, s.azure_reasoning_effort)
     elif s.llm_provider == "vertex":
         from app.llm.vertex import VertexLLM
         llm = VertexLLM(s.gcp_project, s.gcp_location, s.llm_model)

@@ -3,10 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-# USD per 1M tokens (input, output). Illustrative -- verify against current Vertex AI pricing.
+# USD per 1M tokens (input, output). Illustrative list prices -- verify against the provider's current pricing.
 PRICING = {
     "gemini-2.5-flash": (0.30, 2.50),
     "gemini-2.5-pro": (1.25, 10.00),
+    "gpt-5-mini": (0.25, 2.00),
     "mock": (0.0, 0.0),
 }
 
