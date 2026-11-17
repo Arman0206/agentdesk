@@ -10,11 +10,14 @@ import threading, time
 from app.llm.base import LLMResult
 from app.llm.tenacity_lite import retry
 
-_TRANSIENT = ("429", "500", "503", "504", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "DEADLINE")
+_TRANSIENT = ("429", "500", "503", "504", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "DEADLINE",
+              "Server disconnected", "disconnected", "Connection reset", "ConnectionReset", "timed out",
+              "timeout", "Timeout", "ConnectError", "RemoteProtocolError", "Temporary failure")
 
 
 def _is_transient(e: Exception) -> bool:
-    return any(t in str(e) for t in _TRANSIENT)
+    """Rate limits, 5xx and dropped connections are worth retrying; bad keys / bad requests are not."""
+    return any(t in f"{type(e).__name__} {e}" for t in _TRANSIENT)
 
 
 class GeminiLLM:
@@ -33,7 +36,7 @@ class GeminiLLM:
                 time.sleep(wait)
             self._last = time.monotonic()
 
-    @retry(attempts=4, base_delay=3.0, retry_if=_is_transient)
+    @retry(attempts=5, base_delay=3.0, retry_if=_is_transient)
     def generate(self, prompt: str, *, system: str = "", task: str = "generic",
                  json_mode: bool = False) -> LLMResult:
         from google.genai import types

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     gemini_min_interval_s: float = 4.0  # client-side throttle to stay under free-tier requests/minute
     gcp_project: str = ""
     gcp_location: str = "us-central1"
-    llm_model: str = "gemini-2.5-flash"
+    llm_model: str = "gemini-3.8-flash"
     embedding_model: str = "text-embedding-005"
 
     # retrieval

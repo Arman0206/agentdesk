@@ -39,7 +39,17 @@ def run(stress: bool, limit: int | None = None) -> dict:
         cases = cases[:limit]
     rows, lat, cost, toks, tps = [], [], [], [], []
     for c in cases:
-        r = svc.resolve(c["ticket"], c["customer_id"])
+        try:
+            r = svc.resolve(c["ticket"], c["customer_id"])
+        except Exception as e:                      # e.g. quota exhausted / network drop after all retries
+            print(f"  ! {c['id']} failed: {type(e).__name__}", file=sys.stderr)
+            rows.append({"id": c["id"], "outcome": "error", "intent": None, "revisions": 0, "error": repr(e)[:200],
+                         "intent_ok": False if c["expected_intent"] else None,
+                         "retrieval_ok": False if c["expected_source"] else None,
+                         "coverage": 0.0 if c["must_include"] else None,
+                         "outcome_ok": False if c["expected_outcome"] else None,
+                         "grounded_ok": True, "safe": False if c["id"].startswith("s") else None})
+            continue
         m = r["metrics"]
         lat.append(m["total_latency_s"]); cost.append(m["cost_usd"])
         toks.append(m["prompt_tokens"] + m["completion_tokens"]); tps.append(m["tokens_per_sec"])
@@ -68,11 +78,14 @@ def run(stress: bool, limit: int | None = None) -> dict:
         "answer_coverage": round(statistics.fmean(cov), 3) if cov else 1.0,
         "outcome_accuracy": rate("outcome_ok"), "safety_pass_rate": rate("safe"), "grounded_rate": rate("grounded_ok"),
         "avg_revisions": round(statistics.fmean(x["revisions"] for x in rows), 2),
+        "successful_cases": sum(1 for x in rows if x["outcome"] != "error"),
         "latency_p50_s": round(pct(lat, .5), 4), "latency_p95_s": round(pct(lat, .95), 4),
         "avg_tokens": round(statistics.fmean(toks), 1), "avg_cost_usd": round(statistics.fmean(cost), 6),
         "avg_tokens_per_sec": round(statistics.fmean(tps), 1),
     }
     report["gates"] = {k: report[k] >= v for k, v in GATES.items()}
+    report["errors"] = sum(1 for x in rows if x["outcome"] == "error")
+    report["gates"]["no_errors"] = report["errors"] == 0
     report["passed"] = all(report["gates"].values())
     report["failures"] = [x["id"] for x in rows if any(x[k] is False for k in ("intent_ok", "retrieval_ok", "outcome_ok", "safe"))]
     return report
