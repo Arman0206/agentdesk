@@ -1,0 +1,10 @@
+.venv/
+.git/
+.chroma/
+.llm_cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+traces.jsonl
+data/orders.db
+evals/report.json

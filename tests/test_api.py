@@ -66,5 +66,5 @@ def test_production_startup_path_ingests_and_serves(settings, tmp_path, monkeypa
 
 def test_secrets_are_not_printed(settings):
     from pydantic import SecretStr
-    settings.gemini_api_key = SecretStr("AIza-super-secret-value")
-    assert "super-secret" not in repr(settings) and "super-secret" not in str(settings)
+    settings.gemini_api_key = SecretStr("fake-secret-value")
+    assert "fake-secret" not in repr(settings) and "fake-secret" not in str(settings)
