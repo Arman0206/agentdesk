@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
-from app.config import get_settings
+from app.config import get_settings, reveal
 from app.observability.metrics import METRICS
 from app.service import Service
 
@@ -81,7 +81,8 @@ def create_app(service: Service | None = None) -> FastAPI:
     app = FastAPI(title="AgentDesk", version="0.1.0", lifespan=lifespan)
 
     def guard(request: Request, x_api_key: str | None = Header(default=None)):
-        if s.api_key and not (x_api_key and secrets.compare_digest(x_api_key, s.api_key)):
+        expected = reveal(s.api_key)
+        if expected and not (x_api_key and secrets.compare_digest(x_api_key, expected)):
             raise HTTPException(401, "invalid or missing X-API-Key")
         ip = request.client.host if request.client else "unknown"
         if not limiter.allow(ip):

@@ -2,7 +2,7 @@
 from __future__ import annotations
 import hashlib, math, re
 from typing import Protocol
-from app.config import get_settings
+from app.config import get_settings, reveal
 
 _TOK = re.compile(r"[a-z0-9]+")
 
@@ -63,7 +63,7 @@ class GeminiEmbedder:
 def get_embedder() -> Embedder:
     s = get_settings()
     if s.embedding_provider == "gemini":
-        return GeminiEmbedder(s.gemini_api_key, s.gemini_embedding_model)
+        return GeminiEmbedder(reveal(s.gemini_api_key), s.gemini_embedding_model)
     if s.embedding_provider == "vertex":
         return VertexEmbedder(s.gcp_project, s.gcp_location, s.embedding_model)
     return HashEmbedder()

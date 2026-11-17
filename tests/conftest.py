@@ -1,5 +1,6 @@
 import uuid
 import pytest
+from pydantic import SecretStr
 from app.config import get_settings
 from app.llm.mock import MockLLM
 from app.rag.embeddings import HashEmbedder
@@ -14,7 +15,10 @@ def settings(tmp_path, monkeypatch):
     db = str(tmp_path / "orders.db")
     seed(db)
     monkeypatch.setattr(s, "orders_db", db)
-    monkeypatch.setattr(s, "api_key", "")
+    monkeypatch.setattr(s, "api_key", SecretStr(""))
+    monkeypatch.setattr(s, "llm_provider", "mock")          # ignore LLM_PROVIDER etc. set in the shell
+    monkeypatch.setattr(s, "embedding_provider", "hash")
+    monkeypatch.setattr(s, "llm_cache", False)
     return s
 
 

@@ -1,4 +1,5 @@
 import pytest
+from pydantic import SecretStr
 from fastapi.testclient import TestClient
 from app.api.main import create_app
 from app.config import get_settings
@@ -35,7 +36,7 @@ def test_validation_rejects_bad_input(client):
 
 
 def test_api_key_is_enforced_when_configured(client, monkeypatch):
-    monkeypatch.setattr(get_settings(), "api_key", "secret")
+    monkeypatch.setattr(get_settings(), "api_key", SecretStr("secret"))
     assert client.post("/v1/resolve", json={"ticket": "hi"}).status_code == 401
     ok = client.post("/v1/resolve", json={"ticket": "How do I reset 2FA?"}, headers={"X-API-Key": "secret"})
     assert ok.status_code == 200
@@ -61,3 +62,9 @@ def test_production_startup_path_ingests_and_serves(settings, tmp_path, monkeypa
         assert c.get("/health").json()["ready"] is True
         r = c.post("/v1/resolve", json={"ticket": "Where is my order ORD-1001?", "customer_id": "CUST-1"})
         assert r.status_code == 200 and "TRK-88213" in r.json()["reply"]
+
+
+def test_secrets_are_not_printed(settings):
+    from pydantic import SecretStr
+    settings.gemini_api_key = SecretStr("AIza-super-secret-value")
+    assert "super-secret" not in repr(settings) and "super-secret" not in str(settings)

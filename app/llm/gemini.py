@@ -15,6 +15,15 @@ _TRANSIENT = ("429", "500", "503", "504", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "
               "timeout", "Timeout", "ConnectError", "RemoteProtocolError", "Temporary failure")
 
 
+class DailyQuotaExceeded(RuntimeError):
+    """Free-tier per-DAY request cap reached. Retrying within the day is pointless."""
+
+
+def _is_daily_quota(e: Exception) -> bool:
+    t = str(e)
+    return "PerDay" in t or "per day" in t.lower()
+
+
 def _is_transient(e: Exception) -> bool:
     """Rate limits, 5xx and dropped connections are worth retrying; bad keys / bad requests are not."""
     return any(t in f"{type(e).__name__} {e}" for t in _TRANSIENT)
@@ -45,7 +54,13 @@ class GeminiLLM:
             system_instruction=system or None, temperature=0.2,
             response_mime_type="application/json" if json_mode else None)
         t0 = time.perf_counter()
-        resp = self._client.models.generate_content(model=self.model, contents=prompt, config=cfg)
+        try:
+            resp = self._client.models.generate_content(model=self.model, contents=prompt, config=cfg)
+        except Exception as e:
+            if _is_daily_quota(e):
+                raise DailyQuotaExceeded(f"Gemini free-tier daily request quota reached for {self.model}; "
+                                         f"try again after the daily reset or use another model") from e
+            raise
         dt = time.perf_counter() - t0
         u = resp.usage_metadata
         out = (getattr(u, "candidates_token_count", 0) or 0) + (getattr(u, "thoughts_token_count", 0) or 0)

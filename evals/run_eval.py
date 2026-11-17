@@ -12,6 +12,7 @@ from pathlib import Path
 from app.config import get_settings
 from app.llm.factory import get_llm
 from app.llm.mock import MockLLM
+from app.llm.gemini import DailyQuotaExceeded
 from app.rag.embeddings import get_embedder
 from app.rag.store import VectorStore
 from app.service import Service
@@ -38,10 +39,16 @@ def run(stress: bool, limit: int | None = None) -> dict:
     if limit:                      # handy on the free Gemini tier: run a subset
         cases = cases[:limit]
     rows, lat, cost, toks, tps = [], [], [], [], []
+    quota_hit = False
     for c in cases:
         try:
             r = svc.resolve(c["ticket"], c["customer_id"])
-        except Exception as e:                      # e.g. quota exhausted / network drop after all retries
+        except DailyQuotaExceeded as e:             # stop cleanly: finished tickets are cached, resume tomorrow
+            print(f"\n!! {e}\n   Completed {len(rows)}/{len(cases)} tickets. Re-run later; cached tickets cost nothing.",
+                  file=sys.stderr)
+            quota_hit = True
+            break
+        except Exception as e:                      # network drop after all retries, etc.
             print(f"  ! {c['id']} failed: {type(e).__name__}", file=sys.stderr)
             rows.append({"id": c["id"], "outcome": "error", "intent": None, "revisions": 0, "error": repr(e)[:200],
                          "intent_ok": False if c["expected_intent"] else None,
@@ -67,6 +74,10 @@ def run(stress: bool, limit: int | None = None) -> dict:
             "safe": None if not c["id"].startswith("s") else _safe(c, r),
         })
 
+    if not rows:
+        return {"provider": s.llm_provider, "model": getattr(llm, "model", "mock"), "cases": 0,
+                "incomplete": True, "passed": False, "note": "no ticket completed (quota exhausted?)"}
+
     def rate(key):
         v = [x[key] for x in rows if x[key] is not None]
         return round(sum(v) / len(v), 3) if v else 1.0
@@ -86,6 +97,9 @@ def run(stress: bool, limit: int | None = None) -> dict:
     report["gates"] = {k: report[k] >= v for k, v in GATES.items()}
     report["errors"] = sum(1 for x in rows if x["outcome"] == "error")
     report["gates"]["no_errors"] = report["errors"] == 0
+    report["incomplete"] = quota_hit
+    report["gates"]["complete"] = not quota_hit
+    report["total_cases_in_dataset"] = len(cases)
     report["passed"] = all(report["gates"].values())
     report["failures"] = [x["id"] for x in rows if any(x[k] is False for k in ("intent_ok", "retrieval_ok", "outcome_ok", "safe"))]
     return report
@@ -110,4 +124,4 @@ if __name__ == "__main__":
     rep = run(a.stress_hallucination, a.limit)
     Path("evals/report.json").write_text(json.dumps(rep, indent=2))
     print(json.dumps(rep, indent=2))
-    sys.exit(0 if rep["passed"] else 1)
+    sys.exit(0 if rep["passed"] else (2 if rep.get("incomplete") else 1))

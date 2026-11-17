@@ -51,3 +51,37 @@ def test_bad_key_fails_fast_without_retry(monkeypatch):
     with pytest.raises(RuntimeError):
         _llm(Models()).generate("x")
     assert calls["n"] == 1
+
+
+def test_daily_quota_fails_fast_with_clear_error(monkeypatch):
+    from app.llm.gemini import DailyQuotaExceeded
+    monkeypatch.setattr(tl.time, "sleep", lambda s: None)
+    calls = {"n": 0}
+
+    class Models:
+        def generate_content(self, **kw):
+            calls["n"] += 1
+            raise RuntimeError("429 RESOURCE_EXHAUSTED ... GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+
+    with pytest.raises(DailyQuotaExceeded):
+        _llm(Models()).generate("x")
+    assert calls["n"] == 1                          # no pointless retries against a daily cap
+
+
+def test_cache_replays_without_calling_model_and_keeps_measurements(tmp_path):
+    from app.llm.base import LLMResult
+    from app.llm.cache import CachingLLM
+    calls = {"n": 0}
+
+    class Inner:
+        model = "m"
+        def generate(self, prompt, **kw):
+            calls["n"] += 1
+            return LLMResult(text="answer", model="m", prompt_tokens=10, completion_tokens=20, latency_s=3.5)
+
+    c = CachingLLM(Inner(), str(tmp_path))
+    first = c.generate("q", task="draft")
+    again = c.generate("q", task="draft")
+    other = c.generate("different", task="draft")
+    assert calls["n"] == 2 and c.hits == 1 and c.misses == 2
+    assert again.text == "answer" and again.latency_s == 3.5 and again.completion_tokens == 20

@@ -1,5 +1,6 @@
 """Central configuration. Everything is overridable via env vars (12-factor)."""
 from functools import lru_cache
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,8 +11,10 @@ class Settings(BaseSettings):
     #           | "vertex" (Gemini on Vertex AI, needs a billed GCP project)
     llm_provider: str = "mock"
     embedding_provider: str = "hash"  # "hash" | "gemini" | "vertex"
-    gemini_api_key: str = ""          # from https://aistudio.google.com/app/apikey -- never commit it
+    gemini_api_key: SecretStr = SecretStr("")          # from https://aistudio.google.com/app/apikey -- never commit it
     gemini_embedding_model: str = "gemini-embedding-001"  # verify the current name in AI Studio
+    llm_cache: bool = True              # replay saved LLM answers (saves free-tier quota)
+    llm_cache_dir: str = ".llm_cache"
     gemini_min_interval_s: float = 4.0  # client-side throttle to stay under free-tier requests/minute
     gcp_project: str = ""
     gcp_location: str = "us-central1"
@@ -29,11 +32,16 @@ class Settings(BaseSettings):
     max_revisions: int = 2
 
     # service
-    api_key: str = ""            # if empty, auth is disabled (local dev only)
+    api_key: SecretStr = SecretStr("")  # if empty, auth is disabled (local dev only)
     rate_limit_per_min: int = 30  # per client IP, protects the free Gemini quota
     data_dir: str = "data"
     trace_file: str = "traces.jsonl"
     orders_db: str = "data/orders.db"
+
+
+def reveal(v) -> str:
+    """Return the plain value of a SecretStr (or str). Only call this at the point of use."""
+    return v.get_secret_value() if hasattr(v, "get_secret_value") else str(v or "")
 
 
 @lru_cache
