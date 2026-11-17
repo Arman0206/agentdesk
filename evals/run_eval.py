@@ -49,7 +49,7 @@ def run(stress: bool, limit: int | None = None) -> dict:
             quota_hit = True
             break
         except Exception as e:                      # network drop after all retries, etc.
-            print(f"  ! {c['id']} failed: {type(e).__name__}", file=sys.stderr)
+            print(f"  ! {c['id']} failed: {type(e).__name__}: {str(e)[:300]}", file=sys.stderr)
             rows.append({"id": c["id"], "outcome": "error", "intent": None, "revisions": 0, "error": repr(e)[:200],
                          "intent_ok": False if c["expected_intent"] else None,
                          "retrieval_ok": False if c["expected_source"] else None,
